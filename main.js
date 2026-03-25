@@ -206,6 +206,11 @@ class Platform {
         // Culling (don't draw if offscreen)
         if (drawX + this.width < 0 || drawX > canvas.width) return;
 
+        // Calculate pollution/burn factor based on player position progressing past x=17500
+        const pFactor = (typeof player !== 'undefined' && player.x > 17500) 
+            ? Math.max(0, Math.min(1, (player.x - 17500) / 2000)) 
+            : 0;
+
         if (this.type === 'ground') {
             // Earth color
             ctx.fillStyle = '#6e4524';
@@ -219,6 +224,15 @@ class Platform {
             ctx.fillStyle = '#49a83f';
             for (let i = 0; i < this.width; i += 20) {
                 ctx.fillRect(drawX + i, this.y + 2, 8, 4);
+            }
+
+            // Burn overlay directly applied to ground
+            if (pFactor > 0) {
+                ctx.fillStyle = `rgba(20, 10, 5, ${pFactor * 0.9})`;
+                ctx.fillRect(drawX, this.y, this.width, this.height);
+                // Extra burnt effect on grass making it ash black
+                ctx.fillStyle = `rgba(0, 0, 0, ${pFactor * 0.85})`;
+                ctx.fillRect(drawX, this.y, this.width, 12);
             }
         } else {
             // Brick block
@@ -240,6 +254,12 @@ class Platform {
             ctx.moveTo(drawX + this.width*0.75, this.y + this.height/2);
             ctx.lineTo(drawX + this.width*0.75, this.y + this.height);
             ctx.stroke();
+
+            // Burn overlay for blocks
+            if (pFactor > 0) {
+                ctx.fillStyle = `rgba(15, 0, 0, ${pFactor * 0.85})`;
+                ctx.fillRect(drawX, this.y, this.width, this.height);
+            }
         }
     }
 }
@@ -354,8 +374,20 @@ function updateCamera() {
 }
 
 function drawBackground() {
+    const pFactor = (typeof player !== 'undefined' && player.x > 17500) 
+        ? Math.max(0, Math.min(1, (player.x - 17500) / 2000)) 
+        : 0;
+
     // Clear just in case
-    ctx.fillStyle = '#5c94fc'; // Default sky blue
+    if (pFactor > 0) {
+        // Interplate sky blue (92, 148, 252) towards dirty orange/black (44, 20, 10)
+        const r = Math.floor(92 + (44 - 92) * pFactor);
+        const g = Math.floor(148 + (20 - 148) * pFactor);
+        const b = Math.floor(252 + (10 - 252) * pFactor);
+        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    } else {
+        ctx.fillStyle = '#5c94fc'; // Default sky blue
+    }
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (bgImage.complete) {
@@ -365,6 +397,12 @@ function drawBackground() {
         // Draw the image twice to create a seamless looping background effect
         ctx.drawImage(bgImage, -bgPatternScroll, 0, canvas.width, canvas.height);
         ctx.drawImage(bgImage, canvas.width - bgPatternScroll, 0, canvas.width, canvas.height);
+
+        // Overlay smog / darkness over the image
+        if (pFactor > 0) {
+            ctx.fillStyle = `rgba(40, 20, 10, ${pFactor * 0.85})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
     }
 }
 
