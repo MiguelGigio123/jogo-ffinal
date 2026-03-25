@@ -24,46 +24,15 @@ let musicInterval = null;
 
 function startMusic() {
     if (musicInterval) return;
+    musicInterval = true; // Avoid adding multiple iframes
 
-    // Add invisible YouTube player for backing track (mixes with the synth)
+    // Add invisible YouTube player for the 8-bit version of Talus Battle
     const ytContainer = document.createElement('div');
     ytContainer.style.position = 'absolute';
     ytContainer.style.top = '-9999px';
     ytContainer.style.left = '-9999px';
-    // Use the link provided by the user
-    ytContainer.innerHTML = '<iframe width="10" height="10" src="https://www.youtube.com/embed/N8OHSXvneOE?autoplay=1&list=PLe1jcCJWvkWiWLp9h3ge0e5v7n6kxEfOG&index=2" allow="autoplay" allowfullscreen></iframe>';
+    ytContainer.innerHTML = '<iframe width="10" height="10" src="https://www.youtube.com/embed/1XjCmCoqmwU?autoplay=1&loop=1&playlist=1XjCmCoqmwU" allow="autoplay" allowfullscreen></iframe>';
     document.body.appendChild(ytContainer);
-
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    
-    // Simple Mario-like catchy upbeat melody
-    const notes = [
-        659.25, 659.25, 0, 659.25, 0, 523.25, 659.25, 0, 783.99, 0, 0, 392.00, 0, 0, 0, 0,
-        523.25, 0, 0, 392.00, 0, 0, 329.63, 0, 0, 440.00, 0, 493.88, 0, 466.16, 440.00
-    ];
-    let noteIndex = 0;
-    
-    musicInterval = setInterval(() => {
-        if (gameState !== 'PLAYING') return;
-        const freq = notes[noteIndex];
-        if (freq > 0) {
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            
-            osc.type = 'square';
-            osc.frequency.value = freq;
-            
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            
-            gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
-            
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.1);
-        }
-        noteIndex = (noteIndex + 1) % notes.length;
-    }, 150);
 }
 
 window.addEventListener('keydown', (e) => {
