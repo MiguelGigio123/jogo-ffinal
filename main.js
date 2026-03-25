@@ -1,0 +1,288 @@
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game Constants
+const GRAVITY = 0.5;
+const JUMP_FORCE = -12;
+const MOVE_SPEED = 5;
+const MAX_FALL_SPEED = 15;
+
+// Load Background Image
+const bgImage = new Image();
+bgImage.src = 'assets/forest_bg.png';
+
+// Input State
+const keys = {
+    ArrowLeft: false,
+    ArrowRight: false,
+    ArrowUp: false,
+    Space: false
+};
+
+window.addEventListener('keydown', (e) => {
+    if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
+    if (e.code === 'Space') keys.Space = true;
+});
+
+window.addEventListener('keyup', (e) => {
+    if (keys.hasOwnProperty(e.code)) keys[e.code] = false;
+    if (e.code === 'Space') keys.Space = false;
+});
+
+class Player {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 30; // Square sprite
+        this.height = 30;
+        this.vx = 0;
+        this.vy = 0;
+        this.color = '#e52521'; // Mario redish
+        this.isGrounded = false;
+        this.facingRight = true;
+    }
+
+    update(platforms) {
+        // Horizontal Movement
+        if (keys.ArrowLeft) {
+            this.vx = -MOVE_SPEED;
+            this.facingRight = false;
+        } else if (keys.ArrowRight) {
+            this.vx = MOVE_SPEED;
+            this.facingRight = true;
+        } else {
+            // Apply slight friction
+            this.vx *= 0.8;
+            if (Math.abs(this.vx) < 0.1) this.vx = 0;
+        }
+
+        // Jumping
+        if ((keys.ArrowUp || keys.Space) && this.isGrounded) {
+            this.vy = JUMP_FORCE;
+            this.isGrounded = false;
+        }
+
+        // Apply Gravity
+        this.vy += GRAVITY;
+        if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+
+        // Anticipate new positions
+        let nextX = this.x + this.vx;
+        let nextY = this.y + this.vy;
+        
+        this.isGrounded = false;
+
+        // Collision detection for X-axis
+        let hitX = false;
+        for (let p of platforms) {
+            if (nextX < p.x + p.width && nextX + this.width > p.x &&
+                this.y < p.y + p.height && this.y + this.height > p.y) {
+                
+                if (this.vx > 0) { // Moving right
+                    nextX = p.x - this.width;
+                } else if (this.vx < 0) { // Moving left
+                    nextX = p.x + p.width;
+                }
+                this.vx = 0;
+                hitX = true;
+                break;
+            }
+        }
+        this.x = nextX;
+
+        // Collision detection for Y-axis
+        for (let p of platforms) {
+            if (this.x < p.x + p.width && this.x + this.width > p.x &&
+                nextY < p.y + p.height && nextY + this.height > p.y) {
+                
+                if (this.vy > 0) { // Falling down
+                    nextY = p.y - this.height;
+                    this.isGrounded = true;
+                } else if (this.vy < 0) { // Jumping up, hit head
+                    nextY = p.y + p.height;
+                }
+                this.vy = 0;
+                break;
+            }
+        }
+        this.y = nextY;
+
+        // Screen boundaries
+        if (this.x < 0) this.x = 0;
+        
+        // Win condition / End of level (just loop for now)
+        // Let it scroll or lock camera based on player
+        
+        // Death by falling
+        if (this.y > canvas.height + 100) {
+            this.reset();
+        }
+    }
+
+    reset() {
+        this.x = 50;
+        this.y = 100;
+        this.vx = 0;
+        this.vy = 0;
+    }
+
+    draw(ctx, cameraX) {
+        ctx.fillStyle = this.color;
+        // Adjust for camera
+        const drawX = this.x - cameraX;
+        ctx.fillRect(drawX, this.y, this.width, this.height);
+        
+        // Eyes and simple details
+        ctx.fillStyle = '#fff'; // sclera
+        if (this.facingRight) {
+            ctx.fillRect(drawX + 16, this.y + 6, 8, 8);
+            ctx.fillStyle = '#000'; // pupil
+            ctx.fillRect(drawX + 20, this.y + 8, 4, 4);
+        } else {
+            ctx.fillRect(drawX + 6, this.y + 6, 8, 8);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(drawX + 6, this.y + 8, 4, 4);
+        }
+
+        // Simple overalls
+        ctx.fillStyle = '#0047bb'; // blue
+        ctx.fillRect(drawX, this.y + 20, this.width, 10);
+    }
+}
+
+class Platform {
+    constructor(x, y, width, height, type = 'ground') {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.type = type; // 'ground' or 'block'
+    }
+
+    draw(ctx, cameraX) {
+        const drawX = this.x - cameraX;
+        
+        // Culling (don't draw if offscreen)
+        if (drawX + this.width < 0 || drawX > canvas.width) return;
+
+        if (this.type === 'ground') {
+            // Earth color
+            ctx.fillStyle = '#6e4524';
+            ctx.fillRect(drawX, this.y, this.width, this.height);
+            
+            // Grass top
+            ctx.fillStyle = '#3a8732'; // Pixel art style grass green
+            ctx.fillRect(drawX, this.y, this.width, 12);
+            
+            // Random grass spots pattern
+            ctx.fillStyle = '#49a83f';
+            for (let i = 0; i < this.width; i += 20) {
+                ctx.fillRect(drawX + i, this.y + 2, 8, 4);
+            }
+        } else {
+            // Brick block
+            ctx.fillStyle = '#cc5c34';
+            ctx.fillRect(drawX, this.y, this.width, this.height);
+            
+            // Outline/details for block
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(drawX, this.y, this.width, this.height);
+            // Internal brick lines
+            ctx.beginPath();
+            ctx.moveTo(drawX, this.y + this.height/2);
+            ctx.lineTo(drawX + this.width, this.y + this.height/2);
+            ctx.moveTo(drawX + this.width/2, this.y);
+            ctx.lineTo(drawX + this.width/2, this.y + this.height/2);
+            ctx.moveTo(drawX + this.width*0.25, this.y + this.height/2);
+            ctx.lineTo(drawX + this.width*0.25, this.y + this.height);
+            ctx.moveTo(drawX + this.width*0.75, this.y + this.height/2);
+            ctx.lineTo(drawX + this.width*0.75, this.y + this.height);
+            ctx.stroke();
+        }
+    }
+}
+
+// Level Data
+const levelData = [
+    { type: 'ground', x: 0, y: 500, w: 1000, h: 100 },
+    { type: 'ground', x: 1100, y: 500, w: 800, h: 100 },
+    { type: 'block', x: 300, y: 350, w: 40, h: 40 },
+    { type: 'block', x: 340, y: 350, w: 40, h: 40 },
+    { type: 'block', x: 380, y: 350, w: 40, h: 40 },
+    { type: 'block', x: 340, y: 180, w: 40, h: 40 },
+    { type: 'ground', x: 550, y: 400, w: 60, h: 100 }, // Pipe / Obstacle
+    { type: 'block', x: 750, y: 300, w: 120, h: 20 },
+    // A bit of platforming
+    { type: 'block', x: 950, y: 250, w: 80, h: 20 },
+    { type: 'block', x: 1200, y: 350, w: 40, h: 40 },
+    { type: 'block', x: 1350, y: 250, w: 40, h: 40 },
+    { type: 'ground', x: 1500, y: 400, w: 400, h: 200 } // Taller ground section
+];
+
+// Game State
+let player;
+let platforms = [];
+let cameraX = 0;
+
+function init() {
+    player = new Player(50, 400);
+    
+    // Parse level data
+    platforms = levelData.map(p => new Platform(p.x, p.y, p.w, p.h, p.type));
+    
+    // Start loop
+    requestAnimationFrame(gameLoop);
+}
+
+function updateCamera() {
+    // Keep player in the middle third of the screen roughly
+    const scrollBorderRight = cameraX + canvas.width * 0.6;
+    const scrollBorderLeft = cameraX + canvas.width * 0.3;
+    
+    if (player.x > scrollBorderRight) {
+        cameraX = player.x - canvas.width * 0.6;
+    } else if (player.x < scrollBorderLeft && cameraX > 0) {
+        cameraX = player.x - canvas.width * 0.3;
+    }
+    
+    // Don't scroll past the left edge of the level
+    if (cameraX < 0) cameraX = 0;
+}
+
+function drawBackground() {
+    // Clear just in case
+    ctx.fillStyle = '#5c94fc'; // Default sky blue
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (bgImage.complete) {
+        // Advanced parallax: background moves slower than foreground
+        const bgPatternScroll = (cameraX * 0.2) % canvas.width;
+        
+        // Draw the image twice to create a seamless looping background effect
+        ctx.drawImage(bgImage, -bgPatternScroll, 0, canvas.width, canvas.height);
+        ctx.drawImage(bgImage, canvas.width - bgPatternScroll, 0, canvas.width, canvas.height);
+    }
+}
+
+function gameLoop() {
+    // 1. Update Game State
+    player.update(platforms);
+    updateCamera();
+
+    // 2. Clear & Draw Background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground();
+
+    // 3. Draw Elements (offset by camera)
+    for (let platform of platforms) {
+        platform.draw(ctx, cameraX);
+    }
+    player.draw(ctx, cameraX);
+
+    // 4. Request next frame
+    requestAnimationFrame(gameLoop);
+}
+
+// Wait for bg to load before starting just to avoid flashes, though can start immediately too
+init();
