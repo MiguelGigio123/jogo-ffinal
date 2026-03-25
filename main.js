@@ -19,7 +19,48 @@ const keys = {
     Space: false
 };
 
+let gameState = 'START';
+let musicInterval = null;
+
+function startMusic() {
+    if (musicInterval) return;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Simple Mario-like catchy upbeat melody
+    const notes = [
+        659.25, 659.25, 0, 659.25, 0, 523.25, 659.25, 0, 783.99, 0, 0, 392.00, 0, 0, 0, 0,
+        523.25, 0, 0, 392.00, 0, 0, 329.63, 0, 0, 440.00, 0, 493.88, 0, 466.16, 440.00
+    ];
+    let noteIndex = 0;
+    
+    musicInterval = setInterval(() => {
+        if (gameState !== 'PLAYING') return;
+        const freq = notes[noteIndex];
+        if (freq > 0) {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+        noteIndex = (noteIndex + 1) % notes.length;
+    }, 150);
+}
+
 window.addEventListener('keydown', (e) => {
+    if (gameState === 'START' && e.code === 'Enter') {
+        gameState = 'PLAYING';
+        startMusic();
+    }
     if (keys.hasOwnProperty(e.code)) keys[e.code] = true;
     if (e.code === 'Space') keys.Space = true;
 });
@@ -328,6 +369,25 @@ function drawBackground() {
 }
 
 function gameLoop() {
+    if (gameState === 'START') {
+        ctx.fillStyle = '#5c94fc'; // Default sky blue
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 40px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText("SQUARE PLATFORMER", canvas.width/2, canvas.height/2 - 50);
+        
+        ctx.font = '20px Arial';
+        // Blink effect
+        if (Math.floor(Date.now() / 500) % 2 === 0) {
+            ctx.fillText("Press ENTER to Start", canvas.width/2, canvas.height/2 + 30);
+        }
+        
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
     // 1. Update Game State
     player.update(platforms);
     enemies.forEach(enemy => enemy.update());
