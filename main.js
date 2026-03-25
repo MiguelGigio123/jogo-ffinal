@@ -220,9 +220,49 @@ const levelData = [
     { type: 'ground', x: 1500, y: 400, w: 400, h: 200 } // Taller ground section
 ];
 
+class Enemy {
+    constructor(x, y, walkDistance) {
+        this.startX = x;
+        this.x = x;
+        this.y = y;
+        this.width = 30;
+        this.height = 30;
+        this.vx = 2; // Walk speed
+        this.walkDistance = Math.max(walkDistance, 10);
+        this.color = '#8b0000'; // Dark red
+    }
+
+    update() {
+        this.x += this.vx;
+        if (this.x > this.startX + this.walkDistance) {
+            this.x = this.startX + this.walkDistance;
+            this.vx *= -1;
+        } else if (this.x < this.startX) {
+            this.x = this.startX;
+            this.vx *= -1;
+        }
+    }
+
+    draw(ctx, cameraX) {
+        const drawX = this.x - cameraX;
+        if (drawX + this.width < 0 || drawX > canvas.width) return;
+        
+        ctx.fillStyle = this.color;
+        ctx.fillRect(drawX, this.y, this.width, this.height);
+        
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(drawX + 4, this.y + 8, 8, 8);
+        ctx.fillRect(drawX + 18, this.y + 8, 8, 8);
+        ctx.fillStyle = '#000';
+        ctx.fillRect(drawX + 6 + (this.vx > 0 ? 2 : 0), this.y + 10, 4, 4);
+        ctx.fillRect(drawX + 20 + (this.vx > 0 ? 2 : 0), this.y + 10, 4, 4);
+    }
+}
+
 // Game State
 let player;
 let platforms = [];
+let enemies = [];
 let cameraX = 0;
 
 function init() {
@@ -230,6 +270,28 @@ function init() {
     
     // Parse level data
     platforms = levelData.map(p => new Platform(p.x, p.y, p.w, p.h, p.type));
+    
+    // Generate long level (10x longer, up to x=20000)
+    let currentX = 1900;
+    while (currentX < 20000) {
+        const gap = Math.random() > 0.7 ? Math.random() * 150 + 50 : 0;
+        currentX += gap;
+        
+        const groundWidth = Math.random() * 800 + 400;
+        const groundY = 400 + Math.random() * 100;
+        platforms.push(new Platform(currentX, groundY, groundWidth, 600 - groundY, 'ground'));
+        
+        if (Math.random() > 0.5) {
+            platforms.push(new Platform(currentX + 100, groundY - 100, 40, 40, 'block'));
+            platforms.push(new Platform(currentX + 140, groundY - 100, 40, 40, 'block'));
+        }
+        
+        if (Math.random() > 0.3) {
+            enemies.push(new Enemy(currentX + 100, groundY - 30, groundWidth - 200));
+        }
+
+        currentX += groundWidth;
+    }
     
     // Start loop
     requestAnimationFrame(gameLoop);
@@ -268,6 +330,16 @@ function drawBackground() {
 function gameLoop() {
     // 1. Update Game State
     player.update(platforms);
+    enemies.forEach(enemy => enemy.update());
+    
+    // Check collision with enemies -> reset player
+    for (let enemy of enemies) {
+        if (player.x < enemy.x + enemy.width && player.x + player.width > enemy.x &&
+            player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
+            player.reset();
+        }
+    }
+
     updateCamera();
 
     // 2. Clear & Draw Background
@@ -277,6 +349,9 @@ function gameLoop() {
     // 3. Draw Elements (offset by camera)
     for (let platform of platforms) {
         platform.draw(ctx, cameraX);
+    }
+    for (let enemy of enemies) {
+        enemy.draw(ctx, cameraX);
     }
     player.draw(ctx, cameraX);
 
