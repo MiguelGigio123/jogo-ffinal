@@ -24,6 +24,16 @@ let musicInterval = null;
 
 function startMusic() {
     if (musicInterval) return;
+
+    // Add invisible YouTube player for backing track (mixes with the synth)
+    const ytContainer = document.createElement('div');
+    ytContainer.style.position = 'absolute';
+    ytContainer.style.top = '-9999px';
+    ytContainer.style.left = '-9999px';
+    // Use the link provided by the user
+    ytContainer.innerHTML = '<iframe width="10" height="10" src="https://www.youtube.com/embed/N8OHSXvneOE?autoplay=1&list=PLe1jcCJWvkWiWLp9h3ge0e5v7n6kxEfOG&index=2" allow="autoplay" allowfullscreen></iframe>';
+    document.body.appendChild(ytContainer);
+
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     
     // Simple Mario-like catchy upbeat melody
