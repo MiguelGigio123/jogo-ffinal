@@ -101,45 +101,71 @@ window.addEventListener('keyup', (e) => {
 
 // ─── Checkpoint ───────────────────────────────────────────────────────────────
 class Checkpoint {
-    constructor(x, y) {
+    constructor(x, groundY) {
         this.x = x;
-        this.y = y;
-        this.width = 20;
-        this.height = 50;
+        this.groundY = groundY; // Y do chão (topo da plataforma)
+        this.y = groundY - 55;  // Topo da bandeira (55px acima do chão)
+        this.width = 40;
+        this.height = 55;
         this.activated = false;
         this.flagWave = 0;
+        this.notifyTimer = 0;
     }
 
-    update(playerX, playerY) {
+    update(playerX, playerY, playerW, playerH) {
         if (!this.activated) {
-            if (playerX + 30 > this.x && playerX < this.x + this.width &&
-                playerY + 30 > this.y && playerY < this.y + this.height) {
+            // Caixa de colisão generosa para facilitar ativar passando pelo checkpoint
+            if (playerX + playerW > this.x && playerX < this.x + this.width + 20 &&
+                playerY + playerH > this.y && playerY < this.groundY) {
                 this.activated = true;
+                this.notifyTimer = 150;
             }
         }
-        if (this.activated) this.flagWave++;
+        if (this.activated) {
+            this.flagWave++;
+            if (this.notifyTimer > 0) this.notifyTimer--;
+        }
     }
 
     draw(ctx, cameraX) {
         const drawX = this.x - cameraX;
         if (drawX + this.width < 0 || drawX > canvas.width) return;
-        ctx.fillStyle = '#888';
-        ctx.fillRect(drawX + 8, this.y, 4, this.height);
-        const wave = this.activated ? Math.sin(this.flagWave * 0.15) * 4 : 0;
-        ctx.fillStyle = this.activated ? '#ffd700' : '#ccc';
+
+        // Mastro
+        ctx.fillStyle = '#aaa';
+        ctx.fillRect(drawX + 10, this.y, 5, this.height);
+
+        // Bandeira
+        const wave = this.activated ? Math.sin(this.flagWave * 0.15) * 5 : 0;
+        ctx.fillStyle = this.activated ? '#ffd700' : '#cccccc';
         ctx.beginPath();
-        ctx.moveTo(drawX + 12, this.y);
-        ctx.lineTo(drawX + 30, this.y + 5 + wave);
-        ctx.lineTo(drawX + 30, this.y + 18 + wave);
-        ctx.lineTo(drawX + 12, this.y + 18);
+        ctx.moveTo(drawX + 15, this.y);
+        ctx.lineTo(drawX + 40, this.y + 8 + wave);
+        ctx.lineTo(drawX + 40, this.y + 24 + wave);
+        ctx.lineTo(drawX + 15, this.y + 20);
         ctx.closePath();
         ctx.fill();
+
         if (this.activated) {
             ctx.fillStyle = '#fff';
-            ctx.font = '10px Arial';
+            ctx.font = 'bold 11px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('★', drawX + 21, this.y + 14 + wave);
+            ctx.fillText('★', drawX + 28, this.y + 18 + wave);
         }
+
+        // Notificação flutuante ao ativar
+        if (this.notifyTimer > 0) {
+            const alpha = Math.min(1, this.notifyTimer / 30);
+            const floatY = this.y - 30 - (1 - this.notifyTimer / 150) * 30;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('★ Checkpoint! ★', drawX + 15, floatY);
+            ctx.restore();
+        }
+        ctx.textAlign = 'left';
     }
 }
 
@@ -161,9 +187,10 @@ class Player {
         this.onBird = null; 
     }
 
-    setCheckpoint(x, y) {
+    // Salva o ponto de renascimento no chão do checkpoint
+    setCheckpoint(x, groundY) {
         this.spawnX = x;
-        this.spawnY = y - this.height;
+        this.spawnY = groundY - this.height; // Renascer em cima do chão
     }
 
     update(platforms) {
@@ -662,7 +689,7 @@ function respawnPlayer() {
 function init() {
     player = new Player(50, 430); purified = false; purifyTimer = 0; boss = null; birdList = []; groundItem = null; checkpoints = []; enemies = [];
     platforms = levelData.map(p => new Platform(p.x, p.y, p.w, p.h, p.type));
-    for (let cx = 2000; cx < 20000; cx += 2000) checkpoints.push(new Checkpoint(cx, 420));
+    for (let cx = 2000; cx < 20000; cx += 2000) checkpoints.push(new Checkpoint(cx, 450));
     let currentX = 1900;
     let lastY = 450;
     // Plataformas procedurais com variação de altura SEM gaps mortais
@@ -767,7 +794,11 @@ function gameLoop() {
         for (let b of birdList) b.update(); birdList = birdList.filter(b => b.alive !== false);
         if (groundItem && !groundItem.collected) { groundItem.update(); if (player.x < groundItem.x + groundItem.width && player.x + player.width > groundItem.x && player.y < groundItem.y + groundItem.height && player.y + player.height > groundItem.y) { groundItem.collected = true; purified = true; setTimeout(() => { gameState = 'WIN'; }, 3000); } }
         if (purified) purifyTimer++;
-        for (let cp of checkpoints) { const wa = cp.activated; cp.update(player.x, player.y); if (cp.activated && !wa) player.setCheckpoint(cp.x-10, cp.y); }
+        for (let cp of checkpoints) {
+            const wa = cp.activated;
+            cp.update(player.x, player.y, player.width, player.height);
+            if (cp.activated && !wa) player.setCheckpoint(cp.x, cp.groundY);
+        }
         if (!player.dead) {
             for (let e of enemies) {
                 if (e.alive && player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) {
