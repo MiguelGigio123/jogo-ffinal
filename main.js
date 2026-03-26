@@ -20,56 +20,26 @@ const MAX_FALL_SPEED = 15;
 const bgImage = new Image();
 bgImage.src = 'assets/forest_bg.png';
 
-function makeTransparent(img) {
-    if (img.complete && img.naturalWidth > 0) process();
-    else img.addEventListener('load', process);
-
-    function process() {
-        if (img._isTransparent) return;
-        const c = document.createElement('canvas');
-        c.width = img.naturalWidth;
-        c.height = img.naturalHeight;
-        const tCtx = c.getContext('2d');
-        tCtx.drawImage(img, 0, 0);
-        const imgData = tCtx.getImageData(0, 0, c.width, c.height);
-        const data = imgData.data;
-        const r = data[0], g = data[1], b = data[2];
-        for (let i = 0; i < data.length; i += 4) {
-            if (Math.abs(data[i] - r) < 25 && Math.abs(data[i+1] - g) < 25 && Math.abs(data[i+2] - b) < 25) {
-                data[i+3] = 0; // Transparent
-            }
-        }
-        tCtx.putImageData(imgData, 0, 0);
-        img.src = c.toDataURL();
-        img._isTransparent = true;
-    }
-}
-
 const finalBgImage = new Image();
 finalBgImage.src = 'assets/imagem cenário final.jpg';
 
 const playerSprite = new Image();
 playerSprite.src = 'assets/protagonista.png';
-makeTransparent(playerSprite);
 
 const startBg = new Image();
 startBg.src = 'assets/waterfall_start_bg_v2_1774490309580.png';
 
 const bossSprite = new Image();
 bossSprite.src = 'assets/boss.png';
-makeTransparent(bossSprite);
 
 const monkeySprite = new Image();
 monkeySprite.src = 'assets/macaco.png';
-makeTransparent(monkeySprite);
 
 const hunterSprite = new Image();
 hunterSprite.src = 'assets/caçador.png';
-makeTransparent(hunterSprite);
 
 const woodcutterSprite = new Image();
 woodcutterSprite.src = 'assets/lenhador.png';
-makeTransparent(woodcutterSprite);
 
 // Input State
 const keys = {
