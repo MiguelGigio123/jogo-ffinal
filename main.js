@@ -11,6 +11,9 @@ const MAX_FALL_SPEED = 15;
 const bgImage = new Image();
 bgImage.src = 'assets/forest_bg.png';
 
+const finalBgImage = new Image();
+finalBgImage.src = 'assets/imagem cenário final.jpg';
+
 const playerSprite = new Image();
 playerSprite.src = 'assets/protagonista.png';
 
@@ -219,7 +222,7 @@ class Player {
         if (this.dead) return;
         const drawX = this.x - cameraX;
 
-        if (playerSprite.complete) {
+        if (playerSprite.complete && playerSprite.naturalWidth > 0) {
             ctx.save();
             if (!this.facingRight) {
                 ctx.translate(drawX + this.width, this.y);
@@ -394,7 +397,7 @@ class Boss {
             return;
         }
 
-        if (bossSprite.complete) {
+        if (bossSprite.complete && bossSprite.naturalWidth > 0) {
             ctx.save();
             if (this.hitFlash > 0 && Math.floor(this.hitFlash / 3) % 2 === 0) {
                 ctx.globalAlpha = 0.5;
@@ -506,7 +509,7 @@ class Monkey {
         const drawX = this.x - cameraX;
         ctx.save();
         ctx.globalAlpha = this.alpha;
-        if (monkeySprite.complete) {
+        if (monkeySprite.complete && monkeySprite.naturalWidth > 0) {
             ctx.drawImage(monkeySprite, drawX, this.y, this.width, this.height);
         } else {
             ctx.fillStyle = '#00cfff';
@@ -594,7 +597,7 @@ class Enemy {
         const drawX = this.x - cameraX;
         if (drawX + this.width < 0 || drawX > canvas.width) return;
         const spr = this.type === 'hunter' ? hunterSprite : woodcutterSprite;
-        if (spr.complete) {
+        if (spr.complete && spr.naturalWidth > 0) {
             ctx.save();
             if (this.vx > 0) { ctx.translate(drawX + this.width, this.y); ctx.scale(-1, 1); ctx.drawImage(spr, 0, 0, this.width, this.height); }
             else { ctx.drawImage(spr, drawX, this.y, this.width, this.height); }
@@ -639,15 +642,32 @@ function updateCamera() {
 function drawBackground() {
     const rawFactor = (typeof player !== 'undefined' && player.x > 17500) ? Math.max(0, Math.min(1, (player.x - 17500) / 2000)) : 0;
     const pFactor = purified ? 0 : rawFactor;
-    if (pFactor > 0) {
-        const r = Math.floor(92 + (44 - 92) * pFactor), g = Math.floor(148 + (20 - 148) * pFactor), b = Math.floor(252 + (10 - 252) * pFactor);
-        ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-    } else { ctx.fillStyle = '#5c94fc'; }
+    
+    // Fallback base color
+    ctx.fillStyle = '#5c94fc';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (bgImage.complete) {
-        const ps = (cameraX * 0.2) % canvas.width;
+    
+    const ps = (cameraX * 0.2) % canvas.width;
+    
+    // Draw normal forest if it exists
+    if (bgImage.complete && bgImage.naturalWidth > 0) {
+        ctx.globalAlpha = 1 - pFactor;
         ctx.drawImage(bgImage, -ps, 0, canvas.width, canvas.height);
         ctx.drawImage(bgImage, canvas.width - ps, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+    }
+
+    // Draw burned forest over it smoothly
+    if (pFactor > 0 && finalBgImage.complete && finalBgImage.naturalWidth > 0) {
+        ctx.globalAlpha = pFactor;
+        ctx.drawImage(finalBgImage, -ps, 0, canvas.width, canvas.height);
+        ctx.drawImage(finalBgImage, canvas.width - ps, 0, canvas.width, canvas.height);
+        ctx.globalAlpha = 1.0;
+    } else if (pFactor > 0) {
+        // Safe fallback tint if image is missing
+        const r = Math.floor(92 + (44 - 92) * pFactor), g = Math.floor(148 + (20 - 148) * pFactor), b = Math.floor(252 + (10 - 252) * pFactor);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${pFactor})`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 }
 
@@ -670,27 +690,34 @@ function drawBossHint() {
 }
 
 function gameLoop() {
-    if (gameState === 'START') {
-        if (startBg.complete) { ctx.drawImage(startBg, 0, 0, canvas.width, canvas.height); ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(0,0,canvas.width,canvas.height); }
-        else { ctx.fillStyle = '#1a2a4a'; ctx.fillRect(0,0,canvas.width,canvas.height); }
-        ctx.fillStyle = '#00ff88'; ctx.font = '72px "Press Start 2P"'; ctx.textAlign = 'center'; ctx.fillText('FSOUL', canvas.width/2, canvas.height/2);
-        ctx.fillStyle = 'white'; ctx.font = '16px "Press Start 2P"'; if (Math.floor(Date.now()/500)%2===0) ctx.fillText('PRESSIONE ENTER', canvas.width/2, canvas.height/2+100);
-        requestAnimationFrame(gameLoop); return;
-    }
-    if (gameState === 'DEAD') { deathTimer++; drawBackground(); for (let p of platforms) p.draw(ctx,cameraX); drawDeathScreen(); requestAnimationFrame(gameLoop); return; }
-    if (gameState === 'WIN') { drawBackground(); drawWinScreen(); requestAnimationFrame(gameLoop); return; }
+    try {
+        if (gameState === 'START') {
+            if (startBg.complete && startBg.naturalWidth > 0) { ctx.drawImage(startBg, 0, 0, canvas.width, canvas.height); ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+            else { ctx.fillStyle = '#1a2a4a'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+            ctx.fillStyle = '#00ff88'; ctx.font = '72px "Press Start 2P"'; ctx.textAlign = 'center'; ctx.fillText('FSOUL', canvas.width/2, canvas.height/2);
+            ctx.fillStyle = 'white'; ctx.font = '16px "Press Start 2P"'; if (Math.floor(Date.now()/500)%2===0) ctx.fillText('PRESSIONE ENTER', canvas.width/2, canvas.height/2+100);
+            requestAnimationFrame(gameLoop); return;
+        }
+        if (gameState === 'DEAD') { deathTimer++; drawBackground(); for (let p of platforms) p.draw(ctx,cameraX); drawDeathScreen(); requestAnimationFrame(gameLoop); return; }
+        if (gameState === 'WIN') { drawBackground(); drawWinScreen(); requestAnimationFrame(gameLoop); return; }
 
-    player.update(platforms); if (boss) boss.update();
-    for (let b of birdList) b.update(); birdList = birdList.filter(b => b.alive !== false);
-    if (groundItem && !groundItem.collected) { groundItem.update(); if (player.x < groundItem.x + groundItem.width && player.x + player.width > groundItem.x && player.y < groundItem.y + groundItem.height && player.y + player.height > groundItem.y) { groundItem.collected = true; purified = true; setTimeout(() => { gameState = 'WIN'; }, 3000); } }
-    if (purified) purifyTimer++;
-    for (let cp of checkpoints) { const wa = cp.activated; cp.update(player.x, player.y); if (cp.activated && !wa) player.setCheckpoint(cp.x-10, cp.y); }
-    if (!player.dead) { for (let e of enemies) { if (e.alive && player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) { player.die(); break; } } }
-    updateCamera();
-    ctx.clearRect(0,0,canvas.width,canvas.height); drawBackground();
-    for (let p of platforms) p.draw(ctx,cameraX); for (let cp of checkpoints) cp.draw(ctx, cameraX);
-    for (let e of enemies) if (e.alive) e.draw(ctx, cameraX); if (boss) boss.draw(ctx, cameraX);
-    for (let b of birdList) b.draw(ctx, cameraX); if (groundItem && !groundItem.collected) groundItem.draw(ctx, cameraX);
-    player.draw(ctx, cameraX); drawBossHint(); requestAnimationFrame(gameLoop);
+        player.update(platforms); if (boss) boss.update();
+        for (let b of birdList) b.update(); birdList = birdList.filter(b => b.alive !== false);
+        if (groundItem && !groundItem.collected) { groundItem.update(); if (player.x < groundItem.x + groundItem.width && player.x + player.width > groundItem.x && player.y < groundItem.y + groundItem.height && player.y + player.height > groundItem.y) { groundItem.collected = true; purified = true; setTimeout(() => { gameState = 'WIN'; }, 3000); } }
+        if (purified) purifyTimer++;
+        for (let cp of checkpoints) { const wa = cp.activated; cp.update(player.x, player.y); if (cp.activated && !wa) player.setCheckpoint(cp.x-10, cp.y); }
+        if (!player.dead) { for (let e of enemies) { if (e.alive && player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) { player.die(); break; } } }
+        updateCamera();
+        
+        ctx.clearRect(0,0,canvas.width,canvas.height); 
+        drawBackground();
+        for (let p of platforms) p.draw(ctx,cameraX); for (let cp of checkpoints) cp.draw(ctx, cameraX);
+        for (let e of enemies) if (e.alive) e.draw(ctx, cameraX); if (boss) boss.draw(ctx, cameraX);
+        for (let b of birdList) b.draw(ctx, cameraX); if (groundItem && !groundItem.collected) groundItem.draw(ctx, cameraX);
+        player.draw(ctx, cameraX); drawBossHint(); 
+    } catch (e) {
+        console.error("Game loop error:", e);
+    }
+    requestAnimationFrame(gameLoop);
 }
 init();
