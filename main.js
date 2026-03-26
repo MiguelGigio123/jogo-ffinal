@@ -7,9 +7,27 @@ const JUMP_FORCE = -12;
 const MOVE_SPEED = 5;
 const MAX_FALL_SPEED = 15;
 
-// Load Background Image
+// Load Assets
 const bgImage = new Image();
 bgImage.src = 'assets/forest_bg.png';
+
+const playerSprite = new Image();
+playerSprite.src = 'assets/protagonista.png';
+
+const startBg = new Image();
+startBg.src = 'assets/start_bg.png';
+
+const bossSprite = new Image();
+bossSprite.src = 'assets/boss.png';
+
+const monkeySprite = new Image();
+monkeySprite.src = 'assets/macaco.png';
+
+const hunterSprite = new Image();
+hunterSprite.src = 'assets/caçador.png';
+
+const woodcutterSprite = new Image();
+woodcutterSprite.src = 'assets/lenhador.png';
 
 // Input State
 const keys = {
@@ -195,21 +213,35 @@ class Player {
 
     draw(ctx, cameraX) {
         if (this.dead) return;
-        ctx.fillStyle = this.color;
         const drawX = this.x - cameraX;
-        ctx.fillRect(drawX, this.y, this.width, this.height);
-        ctx.fillStyle = '#fff';
-        if (this.facingRight) {
-            ctx.fillRect(drawX + 16, this.y + 6, 8, 8);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(drawX + 20, this.y + 8, 4, 4);
+
+        if (playerSprite.complete) {
+            ctx.save();
+            if (!this.facingRight) {
+                ctx.translate(drawX + this.width, this.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(playerSprite, 0, 0, this.width, this.height);
+            } else {
+                ctx.drawImage(playerSprite, drawX, this.y, this.width, this.height);
+            }
+            ctx.restore();
         } else {
-            ctx.fillRect(drawX + 6, this.y + 6, 8, 8);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(drawX + 6, this.y + 8, 4, 4);
+            // Fallback to rectangle if image not loaded
+            ctx.fillStyle = this.color;
+            ctx.fillRect(drawX, this.y, this.width, this.height);
+            ctx.fillStyle = '#fff';
+            if (this.facingRight) {
+                ctx.fillRect(drawX + 16, this.y + 6, 8, 8);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(drawX + 20, this.y + 8, 4, 4);
+            } else {
+                ctx.fillRect(drawX + 6, this.y + 6, 8, 8);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(drawX + 6, this.y + 8, 4, 4);
+            }
+            ctx.fillStyle = '#0047bb';
+            ctx.fillRect(drawX, this.y + 20, this.width, 10);
         }
-        ctx.fillStyle = '#0047bb';
-        ctx.fillRect(drawX, this.y + 20, this.width, 10);
     }
 }
 
@@ -277,22 +309,22 @@ class Boss {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.width  = 300;  // 10× player (30)
+        this.width  = 300;
         this.height = 300;
         this.hp = 5;
         this.maxHp = 5;
         this.vx = 1.2;
         this.projectiles = [];
         this.shootTimer = 0;
-        this.shootInterval = 90; // frames between shots
-        this.hitFlash = 0;       // white-flash on hit
+        this.shootInterval = 90;
+        this.hitFlash = 0;
         this.dead = false;
         this.deathAnim = 0;
         this.startX = x;
         this.patrolRange = 300;
-        // Birds spawned by boss phase
+        // Monkeys spawned by boss phase
         this.birdSpawnTimer = 0;
-        this.birdSpawnInterval = 180; // spawn a bird every 3s
+        this.birdSpawnInterval = 180;
     }
 
     update() {
@@ -385,12 +417,21 @@ class Boss {
         }
 
         // Body
-        if (this.hitFlash > 0 && Math.floor(this.hitFlash / 3) % 2 === 0) {
-            ctx.fillStyle = '#ffffff';
+        if (bossSprite.complete) {
+            ctx.save();
+            if (this.hitFlash > 0 && Math.floor(this.hitFlash / 3) % 2 === 0) {
+                ctx.globalAlpha = 0.5; // Visual hit feedback
+            }
+            ctx.drawImage(bossSprite, drawX, this.y, this.width, this.height);
+            ctx.restore();
         } else {
-            ctx.fillStyle = '#4b0000';
+            if (this.hitFlash > 0 && Math.floor(this.hitFlash / 3) % 2 === 0) {
+                ctx.fillStyle = '#ffffff';
+            } else {
+                ctx.fillStyle = '#4b0000';
+            }
+            this._drawBody(ctx, drawX, this.y);
         }
-        this._drawBody(ctx, drawX, this.y);
 
         // HP bar
         const barW = this.width;
@@ -443,15 +484,15 @@ class Boss {
 }
 
 // ─── Bird (Pássaro) ───────────────────────────────────────────────────────────
-class Bird {
+class Monkey {
     constructor(x) {
-        this.x = x;            // world x
-        this.y = -60;          // starts above screen
+        this.x = x;
+        this.y = -60;
         this.width = 40;
         this.height = 40;
         this.vy = 0;
-        this.state = 'falling'; // falling | waiting | flying
-        this.groundY = 0;      // set when it lands — hovers just above player height
+        this.state = 'falling';
+        this.groundY = 0;
         this.playerWasOn = false;
         this.flyTargetX = 0;
         this.flyTargetY = 0;
@@ -518,27 +559,25 @@ class Bird {
         ctx.save();
         ctx.globalAlpha = this.alpha;
 
-        // Cyan/sky square bird
-        ctx.fillStyle = '#00cfff';
-        ctx.fillRect(drawX, this.y, this.width, this.height);
-        // Wing stripes
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(drawX + 5,  this.y + 10, 12, 5);
-        ctx.fillRect(drawX + 23, this.y + 10, 12, 5);
-        // Beak dot
-        ctx.fillStyle = '#ffa500';
-        ctx.fillRect(drawX + 15, this.y + 5, 10, 8);
-        // Eye
-        ctx.fillStyle = '#000';
-        ctx.fillRect(drawX + 10, this.y + 6, 5, 5);
-        ctx.fillRect(drawX + 26, this.y + 6, 5, 5);
+        if (monkeySprite.complete) {
+            ctx.drawImage(monkeySprite, drawX, this.y, this.width, this.height);
+        } else {
+            // Cyan/sky square bird fallback
+            ctx.fillStyle = '#00cfff';
+            ctx.fillRect(drawX, this.y, this.width, this.height);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(drawX + 5,  this.y + 10, 12, 5);
+            ctx.fillRect(drawX + 23, this.y + 10, 12, 5);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(drawX + 10, this.y + 6, 5, 5);
+            ctx.fillRect(drawX + 26, this.y + 6, 5, 5);
+        }
 
         // Label
         ctx.fillStyle = '#fff';
         ctx.font = 'bold 9px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('PÁSSARO', drawX + this.width / 2, this.y - 5);
-        ctx.textAlign = 'left';
+        ctx.fillText('MACACO', drawX + this.width / 2, this.y - 5);
         ctx.restore();
     }
 }
@@ -588,11 +627,10 @@ class GroundItem {
 // ─── Spawn helpers ────────────────────────────────────────────────────────────
 function spawnBird() {
     if (!boss || boss.dead) return;
-    // Bird appears above the player at a random x near them
     const bx = player.x + (Math.random() * 200 - 100);
-    const bird = new Bird(bx);
-    bird.alive = true;
-    birdList.push(bird);
+    const monk = new Monkey(bx);
+    monk.alive = true;
+    birdList.push(monk);
 }
 
 function spawnItemPath() {
@@ -625,12 +663,13 @@ class Enemy {
         this.startX = x;
         this.x = x;
         this.y = y;
-        this.width = 30;
-        this.height = 30;
+        this.width = 40; // Slightly larger for assets
+        this.height = 40;
         this.vx = 2;
         this.walkDistance = Math.max(walkDistance, 10);
         this.color = '#8b0000';
         this.alive = true;
+        this.type = Math.random() > 0.5 ? 'hunter' : 'woodcutter';
     }
 
     update() {
@@ -642,14 +681,22 @@ class Enemy {
     draw(ctx, cameraX) {
         const drawX = this.x - cameraX;
         if (drawX + this.width < 0 || drawX > canvas.width) return;
-        ctx.fillStyle = this.color;
-        ctx.fillRect(drawX, this.y, this.width, this.height);
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(drawX + 4,  this.y + 8, 8, 8);
-        ctx.fillRect(drawX + 18, this.y + 8, 8, 8);
-        ctx.fillStyle = '#000';
-        ctx.fillRect(drawX + 6  + (this.vx > 0 ? 2 : 0), this.y + 10, 4, 4);
-        ctx.fillRect(drawX + 20 + (this.vx > 0 ? 2 : 0), this.y + 10, 4, 4);
+        
+        const spr = this.type === 'hunter' ? hunterSprite : woodcutterSprite;
+        if (spr.complete) {
+            ctx.save();
+            if (this.vx > 0) {
+                ctx.translate(drawX + this.width, this.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(spr, 0, 0, this.width, this.height);
+            } else {
+                ctx.drawImage(spr, drawX, this.y, this.width, this.height);
+            }
+            ctx.restore();
+        } else {
+            ctx.fillStyle = this.color;
+            ctx.fillRect(drawX, this.y, this.width, this.height);
+        }
     }
 }
 
@@ -854,10 +901,10 @@ function drawBossHint() {
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
-    ctx.fillStyle = '#00cfff';
+    ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('Pule no PÁSSARO (quadrado cyan) para lançá-lo no chefe! (' + boss.hp + '/5 hits restantes)', canvas.width / 2, canvas.height - 22);
+    ctx.fillText('Pule no MACACO para lançá-lo no chefe! (' + boss.hp + '/5 hits restantes)', canvas.width / 2, canvas.height - 22);
     ctx.textAlign = 'left';
     ctx.restore();
 }
@@ -866,15 +913,27 @@ function drawBossHint() {
 function gameLoop() {
     // ── START SCREEN ──
     if (gameState === 'START') {
-        ctx.fillStyle = '#5c94fc';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (startBg.complete) {
+            ctx.drawImage(startBg, 0, 0, canvas.width, canvas.height);
+            // Overlay to make title readable
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else {
+            ctx.fillStyle = '#5c94fc';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 40px Arial';
+        ctx.font = 'bold 80px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('SQUARE PLATFORMER', canvas.width / 2, canvas.height / 2 - 50);
-        ctx.font = '20px Arial';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+        ctx.shadowBlur = 10;
+        ctx.fillText('FSOUL', canvas.width / 2, canvas.height / 2 - 50);
+        ctx.shadowBlur = 0;
+        
+        ctx.font = '24px Arial';
         if (Math.floor(Date.now() / 500) % 2 === 0) {
-            ctx.fillText('Press ENTER to Start', canvas.width / 2, canvas.height / 2 + 30);
+            ctx.fillText('Pressione ENTER para começar', canvas.width / 2, canvas.height / 2 + 50);
         }
         ctx.textAlign = 'left';
         requestAnimationFrame(gameLoop);
