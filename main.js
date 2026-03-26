@@ -44,8 +44,8 @@ async function removeSolidBackground(img) {
             const [x, y] = queue.shift();
             const idx = (y * w + x) * 4;
             
-            // Se a cor for similar à do fundo, torna transparente e espalha
-            if (Math.abs(data[idx]-br) < 40 && Math.abs(data[idx+1]-bg) < 40 && Math.abs(data[idx+2]-bb) < 40) {
+            // Se a cor for muito similar à do fundo, torna transparente e espalha (limiar rigoroso de 10)
+            if (Math.abs(data[idx]-br) < 10 && Math.abs(data[idx+1]-bg) < 10 && Math.abs(data[idx+2]-bb) < 10) {
                 data[idx+3] = 0;
                 // Check neighbors (4 directions)
                 [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].forEach(([nx, ny]) => {
