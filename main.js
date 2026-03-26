@@ -361,6 +361,18 @@ class Platform {
             for (let i = 0; i < this.width; i += 16) {
                 ctx.fillRect(i, 0, 8, 6);
             }
+            
+            // Variedade no chão
+            ctx.fillStyle = '#2d6926';
+            let prng = this.x * 13 + this.y * 7;
+            for (let dx = 20; dx < this.width - 20; dx += 40) {
+                prng = (prng * 17) % 1000;
+                if (prng > 300) {
+                    let wDrop = (prng % 3 === 0) ? 12 : 8;
+                    let hDrop = (prng % 2 === 0) ? 12 : 6;
+                    ctx.fillRect(dx, 20 + (prng % (this.height - 40)), wDrop, hDrop);
+                }
+            }
             ctx.restore();
 
             if (pFactor > 0) {
@@ -744,9 +756,11 @@ function init() {
     platforms = [new Platform(0, 450, 23000, 150, 'ground')];
     // Plataformas decorativas do início do nível (blocos)
     levelData.filter(p => p.type === 'block').forEach(p => platforms.push(new Platform(p.x, p.y, p.w, p.h, p.type)));
-    for (let cx = 2000; cx < 20000; cx += 2000) checkpoints.push(new Checkpoint(cx, 450));
+    
     let currentX = 1900;
     let lastY = 450;
+    let nextCP = 2000;
+    
     while (currentX < 16000) {
         const nextY = Math.min(480, Math.max(380, lastY + (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 50)));
         const groundWidth = Math.random() * 700 + 500;
@@ -755,7 +769,22 @@ function init() {
             platforms.push(new Platform(currentX, Math.min(lastY, nextY), 100, Math.abs(nextY - lastY) + 60, 'ground'));
         }
         platforms.push(new Platform(currentX, nextY, groundWidth, 600 - nextY, 'ground'));
-        const numEnemies = Math.floor(groundWidth / 300) + 1;
+        
+        // Adicionar Checkpoints no chão certo (corrige o teletransporte)
+        if (currentX > nextCP) {
+            checkpoints.push(new Checkpoint(currentX + 50, nextY));
+            nextCP += 2000;
+        }
+        
+        // Gerar obstáculos de madeira e diminuir inimigos
+        if (Math.random() < 0.6) {
+            platforms.push(new Platform(currentX + groundWidth / 2, nextY - 40, 40, 40, 'block'));
+            if (Math.random() < 0.4) {
+                platforms.push(new Platform(currentX + groundWidth / 2 + 40, nextY - 40, 40, 40, 'block'));
+            }
+        }
+        
+        const numEnemies = Math.max(1, Math.floor((groundWidth / 300) * 0.75));
         for (let i = 0; i < numEnemies; i++) {
             const ex = currentX + 100 + i * (groundWidth / numEnemies);
             if (ex + 80 < currentX + groundWidth) enemies.push(new Enemy(ex, nextY - 80, 220));
@@ -848,9 +877,11 @@ function gameLoop() {
         }
         if (!player.dead) {
             for (let e of enemies) {
-                if (e.alive && player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) {
+                let marginX = 15;
+                let marginY = 10;
+                if (e.alive && player.x + marginX < e.x + e.width - marginX && player.x + player.width - marginX > e.x + marginX && player.y + marginY < e.y + e.height - marginY && player.y + player.height - marginY > e.y + marginY) {
                     // Se o jogador estiver caindo E a borda inferior do player estiver batendo na metade superior do inimigo
-                    if (player.vy > 0 && player.y + player.height < e.y + e.height * 0.5) {
+                    if (player.vy > 0 && player.y + player.height - marginY < e.y + e.height * 0.6) {
                         e.alive = false;     // Mata o inimigo
                         player.vy = -10;     // O jogador quica
                         player.isGrounded = false;
