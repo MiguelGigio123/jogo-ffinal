@@ -20,7 +20,7 @@ const MAX_FALL_SPEED = 15;
 const bgImage = new Image();
 bgImage.src = 'assets/forest_bg.png';
 
-// Remove fundo sólido de uma imagem via fetch+blob (funciona em file://)
+// Remove apenas o fundo "externo" via flood-fill a partir de (0,0) — evita buracos no interior
 async function removeSolidBackground(img) {
     try {
         const resp = await fetch(img.src);
@@ -31,13 +31,32 @@ async function removeSolidBackground(img) {
         ofCtx.drawImage(bmp, 0, 0);
         const imgData = ofCtx.getImageData(0, 0, bmp.width, bmp.height);
         const data = imgData.data;
-        // Detecta a cor do fundo no pixel [0,0]
+        const w = bmp.width;
+        const h = bmp.height;
+        
+        // Cor do fundo pegada do pixel (0,0)
         const br = data[0], bg = data[1], bb = data[2];
-        for (let i = 0; i < data.length; i += 4) {
-            if (Math.abs(data[i]-br) < 30 && Math.abs(data[i+1]-bg) < 30 && Math.abs(data[i+2]-bb) < 30) {
-                data[i+3] = 0;
+        const visited = new Uint8Array(w * h);
+        const queue = [[0, 0]];
+        visited[0] = 1;
+
+        while (queue.length > 0) {
+            const [x, y] = queue.shift();
+            const idx = (y * w + x) * 4;
+            
+            // Se a cor for similar à do fundo, torna transparente e espalha
+            if (Math.abs(data[idx]-br) < 40 && Math.abs(data[idx+1]-bg) < 40 && Math.abs(data[idx+2]-bb) < 40) {
+                data[idx+3] = 0;
+                // Check neighbors (4 directions)
+                [[x+1,y],[x-1,y],[x,y+1],[x,y-1]].forEach(([nx, ny]) => {
+                    if (nx >= 0 && nx < w && ny >= 0 && ny < h && !visited[ny * w + nx]) {
+                        visited[ny * w + nx] = 1;
+                        queue.push([nx, ny]);
+                    }
+                });
             }
         }
+        
         ofCtx.putImageData(imgData, 0, 0);
         const newBlob = await ofc.convertToBlob();
         img.src = URL.createObjectURL(newBlob);
@@ -222,8 +241,8 @@ class Player {
         this.y = y;
         this.spawnX = x;
         this.spawnY = y;
-        this.width = 60;
-        this.height = 60;
+        this.width = 100;
+        this.height = 100;
         this.vx = 0;
         this.vy = 0;
         this.color = '#e52521';
@@ -377,8 +396,8 @@ class Boss {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.width  = 300;
-        this.height = 300;
+        this.width  = 400;
+        this.height = 400;
         this.hp = 5;
         this.maxHp = 5;
         this.vx = 1.2;
@@ -432,8 +451,8 @@ class Boss {
             proj.y += proj.vy;
             if (proj.y > canvas.height + 50) proj.alive = false;
             if (!player.dead && proj.alive) {
-                if (Math.abs(proj.x - (player.x + 15)) < proj.radius + 15 &&
-                    Math.abs(proj.y - (player.y + 15)) < proj.radius + 15) {
+                if (Math.abs(proj.x - (player.x + player.width/2)) < proj.radius + player.width/2.5 &&
+                    Math.abs(proj.y - (player.y + player.height/2)) < proj.radius + player.height/2.5) {
                     proj.alive = false;
                     player.die();
                 }
@@ -553,8 +572,8 @@ class Monkey {
     constructor(x) {
         this.x = x;
         this.y = -60;
-        this.width = 40;
-        this.height = 40;
+        this.width = 60;
+        this.height = 60;
         this.vy = 0;
         this.state = 'falling';
         this.groundY = 0;
@@ -689,7 +708,7 @@ const levelData = [
 class Enemy {
     constructor(x, y, walkDistance) {
         this.startX = x; this.x = x; this.y = y;
-        this.width = 80; this.height = 80;
+        this.width = 120; this.height = 120;
         this.vx = 2.5 + Math.random() * 2; // Velocidade variável: 2.5–4.5
         this.walkDistance = Math.max(walkDistance, 60);
         this.alive = true;
@@ -720,7 +739,7 @@ function respawnPlayer() {
 }
 
 function init() {
-    player = new Player(50, 430); purified = false; purifyTimer = 0; boss = null; birdList = []; groundItem = null; checkpoints = []; enemies = [];
+    player = new Player(50, 450 - 100); purified = false; purifyTimer = 0; boss = null; birdList = []; groundItem = null; checkpoints = []; enemies = [];
     // Plataforma base contínua cobrindo todo o nível — garante que o jogador NUNCA caia em nenhum buraco
     platforms = [new Platform(0, 450, 23000, 150, 'ground')];
     // Plataformas decorativas do início do nível (blocos)
@@ -739,7 +758,7 @@ function init() {
         const numEnemies = Math.floor(groundWidth / 300) + 1;
         for (let i = 0; i < numEnemies; i++) {
             const ex = currentX + 100 + i * (groundWidth / numEnemies);
-            if (ex + 80 < currentX + groundWidth) enemies.push(new Enemy(ex, nextY - 80, 220));
+            if (ex + 120 < currentX + groundWidth) enemies.push(new Enemy(ex, nextY - 120, 220));
         }
         currentX += groundWidth;
         lastY = nextY;
