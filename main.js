@@ -15,7 +15,7 @@ const playerSprite = new Image();
 playerSprite.src = 'assets/protagonista.png';
 
 const startBg = new Image();
-startBg.src = 'assets/start_bg.png';
+startBg.src = 'assets/waterfall_start_bg_v2_1774490309580.png';
 
 const bossSprite = new Image();
 bossSprite.src = 'assets/boss.png';
@@ -53,17 +53,21 @@ let groundItem = null;  // the item that spawns after boss death
 let bossArena = 20500;  // world-x where boss waits
 
 function startMusic() {
-    if (musicInterval) return;
-    musicInterval = true;
-    const ytContainer = document.createElement('div');
-    ytContainer.style.position = 'absolute';
-    ytContainer.style.top = '-9999px';
-    ytContainer.style.left = '-9999px';
-    ytContainer.innerHTML =
-        '<iframe width="10" height="10" ' +
-        'src="https://www.youtube.com/embed/O2l2Q0dh6t8?autoplay=1&loop=1&playlist=O2l2Q0dh6t8" ' +
-        'allow="autoplay" allowfullscreen></iframe>';
-    document.body.appendChild(ytContainer);
+    try {
+        if (musicInterval) return;
+        musicInterval = true;
+        const ytContainer = document.createElement('div');
+        ytContainer.style.position = 'absolute';
+        ytContainer.style.top = '-9999px';
+        ytContainer.style.left = '-9999px';
+        ytContainer.innerHTML =
+            '<iframe width="10" height="10" ' +
+            'src="https://www.youtube.com/embed/O2l2Q0dh6t8?autoplay=1&loop=1&playlist=O2l2Q0dh6t8" ' +
+            'allow="autoplay" allowfullscreen></iframe>';
+        document.body.appendChild(ytContainer);
+    } catch (err) {
+        console.warn("Música não pôde ser iniciada:", err);
+    }
 }
 
 window.addEventListener('keydown', (e) => {
@@ -861,14 +865,14 @@ function drawWinScreen() {
     ctx.shadowColor = '#00ff88';
     ctx.shadowBlur = 40;
     ctx.fillStyle = '#00ff88';
-    ctx.font = 'bold 60px Arial';
-    ctx.fillText('FLORESTA PURIFICADA!', canvas.width / 2, canvas.height / 2 - 40);
+    ctx.font = '32px "Press Start 2P"';
+    ctx.fillText('FLORESTA SALVA!', canvas.width / 2, canvas.height / 2 - 40);
     ctx.shadowBlur = 0;
 
     ctx.fillStyle = '#fff';
-    ctx.font = '24px Arial';
-    ctx.fillText('Todas as impurezas sumiram.', canvas.width / 2, canvas.height / 2 + 20);
-    ctx.fillText('A floresta está salva! 🌿', canvas.width / 2, canvas.height / 2 + 60);
+    ctx.font = '14px "Press Start 2P"';
+    ctx.fillText('A pureza retornou.', canvas.width / 2, canvas.height / 2 + 40);
+    ctx.fillText('Fsoul vitoriosa! 🌿', canvas.width / 2, canvas.height / 2 + 80);
     ctx.textAlign = 'left';
 }
 
@@ -915,25 +919,25 @@ function gameLoop() {
     if (gameState === 'START') {
         if (startBg.complete) {
             ctx.drawImage(startBg, 0, 0, canvas.width, canvas.height);
-            // Overlay to make title readable
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         } else {
-            ctx.fillStyle = '#5c94fc';
+            ctx.fillStyle = '#1a2a4a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
         }
         
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 80px Arial';
+        ctx.fillStyle = '#00ff88';
+        ctx.font = '72px "Press Start 2P"';
         ctx.textAlign = 'center';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-        ctx.shadowBlur = 10;
-        ctx.fillText('FSOUL', canvas.width / 2, canvas.height / 2 - 50);
+        ctx.shadowColor = '#000';
+        ctx.shadowBlur = 15;
+        ctx.fillText('FSOUL', canvas.width / 2, canvas.height / 2);
         ctx.shadowBlur = 0;
         
-        ctx.font = '24px Arial';
+        ctx.fillStyle = 'white';
+        ctx.font = '16px "Press Start 2P"';
         if (Math.floor(Date.now() / 500) % 2 === 0) {
-            ctx.fillText('Pressione ENTER para começar', canvas.width / 2, canvas.height / 2 + 50);
+            ctx.fillText('PRESSIONE ENTER', canvas.width / 2, canvas.height / 2 + 100);
         }
         ctx.textAlign = 'left';
         requestAnimationFrame(gameLoop);
