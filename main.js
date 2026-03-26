@@ -659,17 +659,22 @@ function respawnPlayer() {
 }
 
 function init() {
-    player = new Player(50, 400); purified = false; purifyTimer = 0; boss = null; birdList = []; groundItem = null;
+    player = new Player(50, 400); purified = false; purifyTimer = 0; boss = null; birdList = []; groundItem = null; checkpoints = []; enemies = [];
     platforms = levelData.map(p => new Platform(p.x, p.y, p.w, p.h, p.type));
-    for (let cx = 2000; cx < 20000; cx += 2000) checkpoints.push(new Checkpoint(cx, 370));
+    for (let cx = 2000; cx < 20000; cx += 2000) checkpoints.push(new Checkpoint(cx, 420));
     let currentX = 1900;
-    while (currentX < 20000) {
-        const gap = Math.random() > 0.7 ? Math.random() * 150 + 50 : 0; currentX += gap;
-        const groundWidth = Math.random() * 800 + 400; const groundY = 400 + Math.random() * 100;
-        platforms.push(new Platform(currentX, groundY, groundWidth, 600 - groundY, 'ground'));
+    // Gera plataformas procedurais, mas para antes de 16000 para evitar gaps na zona de transição
+    while (currentX < 16000) {
+        const gap = Math.random() > 0.7 ? Math.random() * 120 + 40 : 0; currentX += gap;
+        const groundWidth = Math.random() * 700 + 400;
+        const groundY = 450; // Y fixo para evitar desnível inesperado
+        platforms.push(new Platform(currentX, groundY, groundWidth, 150, 'ground'));
         if (Math.random() > 0.3) enemies.push(new Enemy(currentX + 100, groundY - 80, groundWidth - 200));
         currentX += groundWidth;
     }
+    // Ponte garantida sem buracos da última plataforma procedural até a zona queimada
+    platforms.push(new Platform(currentX, 450, Math.max(200, 17600 - currentX), 150, 'ground'));
+    // Zona queimada (arena)
     platforms.push(new Platform(17500, 450, 3000, 150, 'ground'));
     platforms.push(new Platform(20300, 450, 1200, 150, 'ground'));
     requestAnimationFrame(gameLoop);
