@@ -20,6 +20,23 @@ const MAX_FALL_SPEED = 15;
 const bgImage = new Image();
 bgImage.src = 'assets/forest_bg.png';
 
+// Helper: desenha sprite removendo fundo branco via multiply blend
+function drawSprite(img, x, y, w, h, flip = false) {
+    if (!img.complete || img.naturalWidth === 0) return false;
+    ctx.save();
+    // Multiply: branco (255,255,255) * fundo = fundo (branco desaparece)
+    ctx.globalCompositeOperation = 'multiply';
+    if (flip) {
+        ctx.translate(x + w, y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, 0, 0, w, h);
+    } else {
+        ctx.drawImage(img, x, y, w, h);
+    }
+    ctx.restore();
+    return true;
+}
+
 const finalBgImage = new Image();
 finalBgImage.src = 'assets/imagem cenário final.jpg';
 
@@ -258,17 +275,8 @@ class Player {
         if (this.dead) return;
         const drawX = this.x - cameraX;
 
-        if (playerSprite.complete && playerSprite.naturalWidth > 0) {
-            ctx.save();
-            if (!this.facingRight) {
-                ctx.translate(drawX + this.width, this.y);
-                ctx.scale(-1, 1);
-                ctx.drawImage(playerSprite, 0, 0, this.width, this.height);
-            } else {
-                ctx.drawImage(playerSprite, drawX, this.y, this.width, this.height);
-            }
-            ctx.restore();
-        } else {
+        const drawn = drawSprite(playerSprite, drawX, this.y, this.width, this.height, !this.facingRight);
+        if (!drawn) {
             ctx.fillStyle = this.color;
             ctx.fillRect(drawX, this.y, this.width, this.height);
         }
@@ -667,12 +675,8 @@ class Enemy {
         const drawX = this.x - cameraX;
         if (drawX + this.width < 0 || drawX > canvas.width) return;
         const spr = this.type === 'hunter' ? hunterSprite : woodcutterSprite;
-        if (spr.complete && spr.naturalWidth > 0) {
-            ctx.save();
-            if (this.vx > 0) { ctx.translate(drawX + this.width, this.y); ctx.scale(-1, 1); ctx.drawImage(spr, 0, 0, this.width, this.height); }
-            else { ctx.drawImage(spr, drawX, this.y, this.width, this.height); }
-            ctx.restore();
-        } else { ctx.fillStyle = '#8b0000'; ctx.fillRect(drawX, this.y, this.width, this.height); }
+        const drawn = drawSprite(spr, drawX, this.y, this.width, this.height, this.vx > 0);
+        if (!drawn) { ctx.fillStyle = '#8b0000'; ctx.fillRect(drawX, this.y, this.width, this.height); }
     }
 }
 
@@ -688,36 +692,31 @@ function respawnPlayer() {
 
 function init() {
     player = new Player(50, 430); purified = false; purifyTimer = 0; boss = null; birdList = []; groundItem = null; checkpoints = []; enemies = [];
-    platforms = levelData.map(p => new Platform(p.x, p.y, p.w, p.h, p.type));
+    // Plataforma base contínua cobrindo todo o nível — garante que o jogador NUNCA caia em nenhum buraco
+    platforms = [new Platform(0, 450, 23000, 150, 'ground')];
+    // Plataformas decorativas do início do nível (blocos)
+    levelData.filter(p => p.type === 'block').forEach(p => platforms.push(new Platform(p.x, p.y, p.w, p.h, p.type)));
     for (let cx = 2000; cx < 20000; cx += 2000) checkpoints.push(new Checkpoint(cx, 450));
     let currentX = 1900;
     let lastY = 450;
-    // Plataformas procedurais com variação de altura SEM gaps mortais
     while (currentX < 16000) {
-        // Pequena variação de altura em "degraus" suaves (max 60px)
-        const nextY = Math.min(500, Math.max(380, lastY + (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 60)));
+        const nextY = Math.min(480, Math.max(380, lastY + (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 50)));
         const groundWidth = Math.random() * 700 + 500;
-        // Rampinha de transição entre alturas diferentes
+        // Degrau de transição entre alturas
         if (Math.abs(nextY - lastY) > 20) {
-            platforms.push(new Platform(currentX, Math.min(lastY, nextY), 120, Math.abs(nextY - lastY) + 150, 'ground'));
+            platforms.push(new Platform(currentX, Math.min(lastY, nextY), 100, Math.abs(nextY - lastY) + 60, 'ground'));
         }
         platforms.push(new Platform(currentX, nextY, groundWidth, 600 - nextY, 'ground'));
-        // Mais inimigos e com posição correta no chão
         const numEnemies = Math.floor(groundWidth / 300) + 1;
         for (let i = 0; i < numEnemies; i++) {
             const ex = currentX + 100 + i * (groundWidth / numEnemies);
-            if (ex + 80 < currentX + groundWidth) {
-                enemies.push(new Enemy(ex, nextY - 80, 220));
-            }
+            if (ex + 80 < currentX + groundWidth) enemies.push(new Enemy(ex, nextY - 80, 220));
         }
         currentX += groundWidth;
         lastY = nextY;
     }
-    // Ponte garantida sem buracos até a zona queimada
-    platforms.push(new Platform(currentX, 450, Math.max(200, 17600 - currentX), 150, 'ground'));
-    // Zona queimada longa + arena do boss
-    platforms.push(new Platform(17500, 450, 3500, 150, 'ground')); // termina em 21000
-    platforms.push(new Platform(20300, 450, 2000, 150, 'ground')); // garante chão além do boss
+    // Zona queimada e arena do boss (já coberta pela plataforma base)
+    platforms.push(new Platform(17500, 450, 5500, 150, 'ground')); // cobre até x=23000
     requestAnimationFrame(gameLoop);
 }
 
