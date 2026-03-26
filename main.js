@@ -626,7 +626,8 @@ class Enemy {
     constructor(x, y, walkDistance) {
         this.startX = x; this.x = x; this.y = y;
         this.width = 80; this.height = 80;
-        this.vx = 2; this.walkDistance = Math.max(walkDistance, 10);
+        this.vx = 2.5 + Math.random() * 2; // Velocidade variável: 2.5–4.5
+        this.walkDistance = Math.max(walkDistance, 60);
         this.alive = true;
         this.type = Math.random() > 0.5 ? 'hunter' : 'woodcutter';
     }
@@ -659,24 +660,37 @@ function respawnPlayer() {
 }
 
 function init() {
-    player = new Player(50, 400); purified = false; purifyTimer = 0; boss = null; birdList = []; groundItem = null; checkpoints = []; enemies = [];
+    player = new Player(50, 430); purified = false; purifyTimer = 0; boss = null; birdList = []; groundItem = null; checkpoints = []; enemies = [];
     platforms = levelData.map(p => new Platform(p.x, p.y, p.w, p.h, p.type));
     for (let cx = 2000; cx < 20000; cx += 2000) checkpoints.push(new Checkpoint(cx, 420));
     let currentX = 1900;
-    // Gera plataformas procedurais, mas para antes de 16000 para evitar gaps na zona de transição
+    let lastY = 450;
+    // Plataformas procedurais com variação de altura SEM gaps mortais
     while (currentX < 16000) {
-        const gap = Math.random() > 0.7 ? Math.random() * 120 + 40 : 0; currentX += gap;
-        const groundWidth = Math.random() * 700 + 400;
-        const groundY = 450; // Y fixo para evitar desnível inesperado
-        platforms.push(new Platform(currentX, groundY, groundWidth, 150, 'ground'));
-        if (Math.random() > 0.3) enemies.push(new Enemy(currentX + 100, groundY - 80, groundWidth - 200));
+        // Pequena variação de altura em "degraus" suaves (max 60px)
+        const nextY = Math.min(500, Math.max(380, lastY + (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 60)));
+        const groundWidth = Math.random() * 700 + 500;
+        // Rampinha de transição entre alturas diferentes
+        if (Math.abs(nextY - lastY) > 20) {
+            platforms.push(new Platform(currentX, Math.min(lastY, nextY), 120, Math.abs(nextY - lastY) + 150, 'ground'));
+        }
+        platforms.push(new Platform(currentX, nextY, groundWidth, 600 - nextY, 'ground'));
+        // Mais inimigos e com posição correta no chão
+        const numEnemies = Math.floor(groundWidth / 300) + 1;
+        for (let i = 0; i < numEnemies; i++) {
+            const ex = currentX + 100 + i * (groundWidth / numEnemies);
+            if (ex + 80 < currentX + groundWidth) {
+                enemies.push(new Enemy(ex, nextY - 80, 220));
+            }
+        }
         currentX += groundWidth;
+        lastY = nextY;
     }
-    // Ponte garantida sem buracos da última plataforma procedural até a zona queimada
+    // Ponte garantida sem buracos até a zona queimada
     platforms.push(new Platform(currentX, 450, Math.max(200, 17600 - currentX), 150, 'ground'));
-    // Zona queimada (arena)
-    platforms.push(new Platform(17500, 450, 3000, 150, 'ground'));
-    platforms.push(new Platform(20300, 450, 1200, 150, 'ground'));
+    // Zona queimada longa + arena do boss
+    platforms.push(new Platform(17500, 450, 3500, 150, 'ground')); // termina em 21000
+    platforms.push(new Platform(20300, 450, 2000, 150, 'ground')); // garante chão além do boss
     requestAnimationFrame(gameLoop);
 }
 
@@ -749,6 +763,7 @@ function gameLoop() {
         if (gameState === 'WIN') { drawBackground(); drawWinScreen(); requestAnimationFrame(gameLoop); return; }
 
         player.update(platforms); if (boss) boss.update();
+        enemies.forEach(e => { if (e.alive) e.update(); }); // <-- CORRIGIDO: inimigos agora se movem
         for (let b of birdList) b.update(); birdList = birdList.filter(b => b.alive !== false);
         if (groundItem && !groundItem.collected) { groundItem.update(); if (player.x < groundItem.x + groundItem.width && player.x + player.width > groundItem.x && player.y < groundItem.y + groundItem.height && player.y + player.height > groundItem.y) { groundItem.collected = true; purified = true; setTimeout(() => { gameState = 'WIN'; }, 3000); } }
         if (purified) purifyTimer++;
