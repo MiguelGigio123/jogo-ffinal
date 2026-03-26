@@ -20,12 +20,36 @@ const MAX_FALL_SPEED = 15;
 const bgImage = new Image();
 bgImage.src = 'assets/forest_bg.png';
 
-// Helper: desenha sprite removendo fundo branco via multiply blend
+// Remove fundo sólido de uma imagem via fetch+blob (funciona em file://)
+async function removeSolidBackground(img) {
+    try {
+        const resp = await fetch(img.src);
+        const blob = await resp.blob();
+        const bmp = await createImageBitmap(blob);
+        const ofc = new OffscreenCanvas(bmp.width, bmp.height);
+        const ofCtx = ofc.getContext('2d');
+        ofCtx.drawImage(bmp, 0, 0);
+        const imgData = ofCtx.getImageData(0, 0, bmp.width, bmp.height);
+        const data = imgData.data;
+        // Detecta a cor do fundo no pixel [0,0]
+        const br = data[0], bg = data[1], bb = data[2];
+        for (let i = 0; i < data.length; i += 4) {
+            if (Math.abs(data[i]-br) < 30 && Math.abs(data[i+1]-bg) < 30 && Math.abs(data[i+2]-bb) < 30) {
+                data[i+3] = 0;
+            }
+        }
+        ofCtx.putImageData(imgData, 0, 0);
+        const newBlob = await ofc.convertToBlob();
+        img.src = URL.createObjectURL(newBlob);
+    } catch(e) {
+        console.warn('removeSolidBackground falhou para', img.src, e);
+    }
+}
+
+// Helper de desenho normal (usa transparência real do PNG)
 function drawSprite(img, x, y, w, h, flip = false) {
     if (!img.complete || img.naturalWidth === 0) return false;
     ctx.save();
-    // Multiply: branco (255,255,255) * fundo = fundo (branco desaparece)
-    ctx.globalCompositeOperation = 'multiply';
     if (flip) {
         ctx.translate(x + w, y);
         ctx.scale(-1, 1);
@@ -42,21 +66,26 @@ finalBgImage.src = 'assets/imagem cenário final.jpg';
 
 const playerSprite = new Image();
 playerSprite.src = 'assets/protagonista.png';
+playerSprite.addEventListener('load', () => removeSolidBackground(playerSprite));
 
 const startBg = new Image();
 startBg.src = 'assets/waterfall_start_bg_v2_1774490309580.png';
 
 const bossSprite = new Image();
 bossSprite.src = 'assets/boss.png';
+bossSprite.addEventListener('load', () => removeSolidBackground(bossSprite));
 
 const monkeySprite = new Image();
 monkeySprite.src = 'assets/macaco.png';
+monkeySprite.addEventListener('load', () => removeSolidBackground(monkeySprite));
 
 const hunterSprite = new Image();
 hunterSprite.src = 'assets/caçador.png';
+hunterSprite.addEventListener('load', () => removeSolidBackground(hunterSprite));
 
 const woodcutterSprite = new Image();
 woodcutterSprite.src = 'assets/lenhador.png';
+woodcutterSprite.addEventListener('load', () => removeSolidBackground(woodcutterSprite));
 
 // Input State
 const keys = {
