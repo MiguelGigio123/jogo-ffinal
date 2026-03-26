@@ -396,15 +396,46 @@ class Boss {
         if (drawX + this.width < 0 || drawX > canvas.width) return;
 
         if (this.dead) {
-            const scale = Math.max(0, 1 - this.deathAnim / 60);
-            const cx = drawX + this.width / 2;
-            const cy = this.y + this.height / 2;
+            if (this.deathAnim > 80) return; // Fully done
+            const progress = this.deathAnim / 80;
+            const scale = Math.max(0, 1 - progress);
+            const alpha = Math.max(0, 1 - progress);
+            const shake = this.deathAnim < 30 ? (Math.random() - 0.5) * 12 : 0;
+            const cx = drawX + this.width / 2 + shake;
+            const cy = this.y + this.height / 2 + shake;
+
             ctx.save();
             ctx.translate(cx, cy);
             ctx.scale(scale, scale);
-            ctx.globalAlpha = scale;
-            this._drawBody(ctx, -this.width / 2, -this.height / 2);
+            ctx.globalAlpha = alpha;
+
+            // Flash white on early death frames
+            if (this.deathAnim < 20 && Math.floor(this.deathAnim / 3) % 2 === 0) {
+                ctx.filter = 'brightness(10)';
+            }
+
+            if (bossSprite.complete && bossSprite.naturalWidth > 0) {
+                ctx.drawImage(bossSprite, -this.width / 2, -this.height / 2, this.width, this.height);
+            } else {
+                ctx.fillStyle = '#4b0000';
+                this._drawBody(ctx, -this.width / 2, -this.height / 2);
+            }
+
+            ctx.filter = 'none';
             ctx.restore();
+
+            // Explosion particles
+            if (this.deathAnim < 40 && this.deathAnim % 4 === 0) {
+                const px = drawX + Math.random() * this.width;
+                const py = this.y + Math.random() * this.height;
+                ctx.save();
+                ctx.globalAlpha = 1 - progress;
+                ctx.fillStyle = ['#ff4500','#ff8c00','#ffff00','#ff0000'][Math.floor(Math.random()*4)];
+                ctx.beginPath();
+                ctx.arc(px, py, 8 + Math.random() * 18, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
             return;
         }
 
