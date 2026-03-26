@@ -1,6 +1,15 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
+// Gerador de Padrão (Pixel Art de Grama)
+const grassCanvas = document.createElement('canvas');
+grassCanvas.width = 32; grassCanvas.height = 32;
+const gCtx = grassCanvas.getContext('2d');
+gCtx.fillStyle = '#3a8732'; gCtx.fillRect(0, 0, 32, 32);
+gCtx.fillStyle = '#49a83f'; gCtx.fillRect(0, 0, 16, 16); gCtx.fillRect(16, 16, 16, 16);
+gCtx.fillStyle = '#2d6926'; gCtx.fillRect(0, 16, 8, 8); gCtx.fillRect(16, 0, 8, 8);
+const grassPattern = ctx.createPattern(grassCanvas, 'repeat');
+
 // Game Constants
 const GRAVITY = 0.5;
 const JUMP_FORCE = -12;
@@ -11,26 +20,56 @@ const MAX_FALL_SPEED = 15;
 const bgImage = new Image();
 bgImage.src = 'assets/forest_bg.png';
 
+function makeTransparent(img) {
+    if (img.complete && img.naturalWidth > 0) process();
+    else img.addEventListener('load', process);
+
+    function process() {
+        if (img._isTransparent) return;
+        const c = document.createElement('canvas');
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        const tCtx = c.getContext('2d');
+        tCtx.drawImage(img, 0, 0);
+        const imgData = tCtx.getImageData(0, 0, c.width, c.height);
+        const data = imgData.data;
+        const r = data[0], g = data[1], b = data[2];
+        for (let i = 0; i < data.length; i += 4) {
+            if (Math.abs(data[i] - r) < 25 && Math.abs(data[i+1] - g) < 25 && Math.abs(data[i+2] - b) < 25) {
+                data[i+3] = 0; // Transparent
+            }
+        }
+        tCtx.putImageData(imgData, 0, 0);
+        img.src = c.toDataURL();
+        img._isTransparent = true;
+    }
+}
+
 const finalBgImage = new Image();
 finalBgImage.src = 'assets/imagem cenário final.jpg';
 
 const playerSprite = new Image();
 playerSprite.src = 'assets/protagonista.png';
+makeTransparent(playerSprite);
 
 const startBg = new Image();
 startBg.src = 'assets/waterfall_start_bg_v2_1774490309580.png';
 
 const bossSprite = new Image();
 bossSprite.src = 'assets/boss.png';
+makeTransparent(bossSprite);
 
 const monkeySprite = new Image();
 monkeySprite.src = 'assets/macaco.png';
+makeTransparent(monkeySprite);
 
 const hunterSprite = new Image();
 hunterSprite.src = 'assets/caçador.png';
+makeTransparent(hunterSprite);
 
 const woodcutterSprite = new Image();
 woodcutterSprite.src = 'assets/lenhador.png';
+makeTransparent(woodcutterSprite);
 
 // Input State
 const keys = {
@@ -141,8 +180,8 @@ class Player {
         this.y = y;
         this.spawnX = x;
         this.spawnY = y;
-        this.width = 30;
-        this.height = 30;
+        this.width = 60;
+        this.height = 60;
         this.vx = 0;
         this.vy = 0;
         this.color = '#e52521';
@@ -259,19 +298,21 @@ class Platform {
         const pFactor = purified ? 0 : rawFactor;
 
         if (this.type === 'ground') {
-            ctx.fillStyle = '#6e4524';
-            ctx.fillRect(drawX, this.y, this.width, this.height);
-            ctx.fillStyle = '#3a8732';
-            ctx.fillRect(drawX, this.y, this.width, 12);
-            ctx.fillStyle = '#49a83f';
-            for (let i = 0; i < this.width; i += 20) {
-                ctx.fillRect(drawX + i, this.y + 2, 8, 4);
+            ctx.save();
+            ctx.translate(drawX, this.y);
+            ctx.fillStyle = grassPattern;
+            ctx.fillRect(0, 0, this.width, this.height);
+            
+            // Highlight superior
+            ctx.fillStyle = '#5bd651';
+            for (let i = 0; i < this.width; i += 16) {
+                ctx.fillRect(i, 0, 8, 6);
             }
+            ctx.restore();
+
             if (pFactor > 0) {
-                ctx.fillStyle = `rgba(20, 10, 5, ${pFactor * 0.9})`;
+                ctx.fillStyle = `rgba(25, 25, 20, ${pFactor * 0.95})`; // Efeito escuro/carbonizado
                 ctx.fillRect(drawX, this.y, this.width, this.height);
-                ctx.fillStyle = `rgba(0, 0, 0, ${pFactor * 0.85})`;
-                ctx.fillRect(drawX, this.y, this.width, 12);
             }
         } else {
             ctx.fillStyle = '#cc5c34';
@@ -583,7 +624,7 @@ const levelData = [
 class Enemy {
     constructor(x, y, walkDistance) {
         this.startX = x; this.x = x; this.y = y;
-        this.width = 40; this.height = 40;
+        this.width = 80; this.height = 80;
         this.vx = 2; this.walkDistance = Math.max(walkDistance, 10);
         this.alive = true;
         this.type = Math.random() > 0.5 ? 'hunter' : 'woodcutter';
@@ -625,7 +666,7 @@ function init() {
         const gap = Math.random() > 0.7 ? Math.random() * 150 + 50 : 0; currentX += gap;
         const groundWidth = Math.random() * 800 + 400; const groundY = 400 + Math.random() * 100;
         platforms.push(new Platform(currentX, groundY, groundWidth, 600 - groundY, 'ground'));
-        if (Math.random() > 0.3) enemies.push(new Enemy(currentX + 100, groundY - 30, groundWidth - 200));
+        if (Math.random() > 0.3) enemies.push(new Enemy(currentX + 100, groundY - 80, groundWidth - 200));
         currentX += groundWidth;
     }
     platforms.push(new Platform(17500, 450, 3000, 150, 'ground'));
@@ -706,7 +747,22 @@ function gameLoop() {
         if (groundItem && !groundItem.collected) { groundItem.update(); if (player.x < groundItem.x + groundItem.width && player.x + player.width > groundItem.x && player.y < groundItem.y + groundItem.height && player.y + player.height > groundItem.y) { groundItem.collected = true; purified = true; setTimeout(() => { gameState = 'WIN'; }, 3000); } }
         if (purified) purifyTimer++;
         for (let cp of checkpoints) { const wa = cp.activated; cp.update(player.x, player.y); if (cp.activated && !wa) player.setCheckpoint(cp.x-10, cp.y); }
-        if (!player.dead) { for (let e of enemies) { if (e.alive && player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) { player.die(); break; } } }
+        if (!player.dead) {
+            for (let e of enemies) {
+                if (e.alive && player.x < e.x + e.width && player.x + player.width > e.x && player.y < e.y + e.height && player.y + player.height > e.y) {
+                    // Se o jogador estiver caindo E a borda inferior do player estiver batendo na metade superior do inimigo
+                    if (player.vy > 0 && player.y + player.height < e.y + e.height * 0.5) {
+                        e.alive = false;     // Mata o inimigo
+                        player.vy = -10;     // O jogador quica
+                        player.isGrounded = false;
+                    } else {
+                        player.die();        // Caso contrário, morre
+                        break;
+                    }
+                }
+            }
+        }
+
         updateCamera();
         
         ctx.clearRect(0,0,canvas.width,canvas.height); 
